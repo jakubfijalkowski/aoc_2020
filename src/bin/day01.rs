@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{prelude::*, BufReader};
 
 fn read_input() -> Vec<i32> {
-    BufReader::new(fs::File::open("./inputs/day1.txt").unwrap())
+    BufReader::new(fs::File::open("./inputs/day01.txt").unwrap())
         .lines()
         .map(|x| x.unwrap().parse().unwrap())
         .collect()
