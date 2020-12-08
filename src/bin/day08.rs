@@ -1,7 +1,4 @@
 use aoc_2020::interpreter::*;
-use std::io::{prelude::*, BufReader};
-use std::{collections::HashSet, fs};
-use thiserror::Error;
 
 fn mutate(i: &Instruction) -> Instruction {
     match i {
