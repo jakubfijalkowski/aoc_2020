@@ -15,6 +15,41 @@ enum Cell {
     TakenSeat,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct GameOfLife {
+    width: isize,
+    height: isize,
+    tiles: Vec<Cell>,
+}
+
+struct SeatMutation {
+    can_change_to_empty: bool,
+    can_change_to_taken: bool,
+}
+
+/// Normally, I would make `Rules` trait look like this:
+/// ```
+/// trait Rules {
+///     fn can_change_to_empty(adjacent: impl Iterator<Item = Cell>) -> bool;
+///     fn can_change_to_taken(adjacent: impl Iterator<Item = Cell>) -> bool;
+/// }
+/// ```
+/// unfortunately, the `adjacent` iterator cannot be changed to an `IntoIterator` or even
+/// `Copy`/`Clone` as it will be `GenIterator`-based and since generators can't be [copied] yet,
+/// I can only iterate over it once. Hence the `fold` in implementations.
+///
+/// [copied]: https://github.com/rust-lang/rust/issues/57972
+trait Rules {
+    fn get_adjacent<'a>(
+        game: &'a GameOfLife,
+        at: Position,
+    ) -> Box<dyn Generator<Yield = Cell, Return = ()> + Unpin + 'a>;
+    fn can_mutate(adjacent: impl Iterator<Item = Cell>) -> SeatMutation;
+}
+
+struct Part1Rules;
+struct Part2Rules;
+
 impl Cell {
     fn parse(c: char) -> Option<Cell> {
         match c {
@@ -25,23 +60,16 @@ impl Cell {
         }
     }
 
-    fn mutate<R: Ruling>(&self, adjacent: &[Self]) -> Self {
-        debug_assert!(adjacent.len() == 8);
-        if *self == Self::EmptySeat && R::should_change_to_taken(adjacent) {
+    fn mutate<R: Rules, I: Iterator<Item = Cell>>(&self, adjacent: I) -> Self {
+        let rules = R::can_mutate(adjacent);
+        if *self == Self::EmptySeat && rules.can_change_to_taken {
             Self::TakenSeat
-        } else if *self == Self::TakenSeat && R::should_change_to_empty(adjacent) {
+        } else if *self == Self::TakenSeat && rules.can_change_to_empty {
             Self::EmptySeat
         } else {
             *self
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct GameOfLife {
-    width: isize,
-    height: isize,
-    tiles: Vec<Cell>,
 }
 
 impl GameOfLife {
@@ -77,13 +105,13 @@ impl GameOfLife {
         }
     }
 
-    fn iterate<R: Ruling>(&mut self) -> bool {
+    fn iterate<R: Rules>(&mut self) -> bool {
         let mut new_tiles = self.tiles.clone();
         for y in 0..self.height {
             for x in 0..self.width {
                 let idx = y * self.width + x;
                 let adjacent = gather(R::get_adjacent(self, Position(x, y)));
-                new_tiles[idx as usize] = self.get_at(Position(x, y)).mutate::<R>(&adjacent);
+                new_tiles[idx as usize] = self.get_at(Position(x, y)).mutate::<R, _>(adjacent);
             }
         }
         if self.tiles != new_tiles {
@@ -99,30 +127,7 @@ impl GameOfLife {
     }
 }
 
-trait Ruling {
-    fn get_adjacent<'a>(
-        game: &'a GameOfLife,
-        at: Position,
-    ) -> Box<dyn Generator<Yield = Cell, Return = ()> + Unpin + 'a>;
-    fn should_change_to_empty(adjacent: &[Cell]) -> bool;
-    fn should_change_to_taken(adjacent: &[Cell]) -> bool;
-}
-
-fn gather<'a>(
-    mut generator: Box<dyn Generator<Yield = Cell, Return = ()> + Unpin + 'a>,
-) -> Vec<Cell> {
-    let mut result = Vec::new();
-    let mut generator = generator.as_mut();
-    while let GeneratorState::Yielded(c) = Pin::new(&mut generator).resume(()) {
-        result.push(c);
-    }
-    result
-}
-
-struct Part1;
-struct Part2;
-
-impl Ruling for Part1 {
+impl Rules for Part1Rules {
     fn get_adjacent<'a>(
         game: &'a GameOfLife,
         at: Position,
@@ -141,16 +146,21 @@ impl Ruling for Part1 {
         })
     }
 
-    fn should_change_to_empty(adjacent: &[Cell]) -> bool {
-        adjacent.iter().filter(|&x| *x == Cell::TakenSeat).count() >= 4
-    }
-
-    fn should_change_to_taken(adjacent: &[Cell]) -> bool {
-        adjacent.iter().all(|&x| x != Cell::TakenSeat)
+    fn can_mutate(adjacent: impl Iterator<Item = Cell>) -> SeatMutation {
+        let (x, a) = adjacent.fold((0, true), |(x, a), c| {
+            (
+                if c == Cell::TakenSeat { x + 1 } else { x },
+                a && c != Cell::TakenSeat,
+            )
+        });
+        SeatMutation {
+            can_change_to_empty: x >= 4,
+            can_change_to_taken: a,
+        }
     }
 }
 
-impl Ruling for Part2 {
+impl Rules for Part2Rules {
     fn get_adjacent<'a>(
         game: &'a GameOfLife,
         at: Position,
@@ -167,16 +177,21 @@ impl Ruling for Part2 {
         })
     }
 
-    fn should_change_to_empty(adjacent: &[Cell]) -> bool {
-        adjacent.iter().filter(|&x| *x == Cell::TakenSeat).count() >= 5
-    }
-
-    fn should_change_to_taken(adjacent: &[Cell]) -> bool {
-        adjacent.iter().all(|&x| x != Cell::TakenSeat)
+    fn can_mutate(adjacent: impl Iterator<Item = Cell>) -> SeatMutation {
+        let (x, a) = adjacent.fold((0, true), |(x, a), c| {
+            (
+                if c == Cell::TakenSeat { x + 1 } else { x },
+                a && c != Cell::TakenSeat,
+            )
+        });
+        SeatMutation {
+            can_change_to_empty: x >= 5,
+            can_change_to_taken: a,
+        }
     }
 }
 
-impl Part2 {
+impl Part2Rules {
     fn get_at_direction(game: &GameOfLife, at: Position, xd: isize, yd: isize) -> Cell {
         let Position(mut x, mut y) = at;
         x = x + xd;
@@ -195,15 +210,37 @@ impl Part2 {
     }
 }
 
+struct GenIterator<'a, Yield, Return> {
+    generator: Box<dyn Generator<Yield = Yield, Return = Return> + Unpin + 'a>,
+}
+
+impl<'a, Yield, Return> Iterator for GenIterator<'a, Yield, Return> {
+    type Item = Yield;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut generator = self.generator.as_mut();
+        match Pin::new(&mut generator).resume(()) {
+            GeneratorState::Yielded(c) => Some(c),
+            GeneratorState::Complete(_) => None,
+        }
+    }
+}
+
+fn gather<'a, Yield: 'a, Return: 'a>(
+    generator: Box<dyn Generator<Yield = Yield, Return = Return> + Unpin + 'a>,
+) -> impl Iterator<Item = Yield> + 'a {
+    GenIterator { generator }
+}
+
 fn part1() {
     let mut map = GameOfLife::read_file("./inputs/day11.txt").unwrap();
-    while map.iterate::<Part1>() {}
+    while map.iterate::<Part1Rules>() {}
     println!("Part 1: {}", map.count_taken());
 }
 
 fn part2() {
     let mut map = GameOfLife::read_file("./inputs/day11.txt").unwrap();
-    while map.iterate::<Part2>() {}
+    while map.iterate::<Part2Rules>() {}
     println!("Part 2: {}", map.count_taken());
 }
 
@@ -234,7 +271,7 @@ mod tests {
         let mut a = GameOfLife::parse("L.LL.LL.LL\nLLLLLLL.LL\nL.L.L..L..\nLLLL.LL.LL\nL.LL.LL.LL\nL.LLLLL.LL\n..L.L.....\nLLLLLLLLLL\nL.LLLLLL.L\nL.LLLLL.LL").unwrap();
         let b = GameOfLife::parse("#.##.##.##\n#######.##\n#.#.#..#..\n####.##.##\n#.##.##.##\n#.#####.##\n..#.#.....\n##########\n#.######.#\n#.#####.##").unwrap();
 
-        assert_eq!(true, a.iterate::<Part1>());
+        assert_eq!(true, a.iterate::<Part1Rules>());
         assert_eq!(a, b);
     }
 
@@ -244,10 +281,10 @@ mod tests {
         let b = GameOfLife::parse("#.##.##.##\n#######.##\n#.#.#..#..\n####.##.##\n#.##.##.##\n#.#####.##\n..#.#.....\n##########\n#.######.#\n#.#####.##").unwrap();
         let c = GameOfLife::parse("#.LL.LL.L#\n#LLLLLL.LL\nL.L.L..L..\nLLLL.LL.LL\nL.LL.LL.LL\nL.LLLLL.LL\n..L.L.....\nLLLLLLLLL#\n#.LLLLLL.L\n#.LLLLL.L#").unwrap();
 
-        assert_eq!(true, a.iterate::<Part2>());
+        assert_eq!(true, a.iterate::<Part2Rules>());
         assert_eq!(a, b);
 
-        assert_eq!(true, a.iterate::<Part2>());
+        assert_eq!(true, a.iterate::<Part2Rules>());
         assert_eq!(a, c);
     }
 
@@ -258,7 +295,7 @@ mod tests {
             yield Cell::TakenSeat;
             yield Cell::Floor;
         });
-        let all = gather(g);
+        let all: Vec<_> = gather(g).collect();
         assert_eq!(vec![Cell::EmptySeat, Cell::TakenSeat, Cell::Floor], all);
     }
 }
