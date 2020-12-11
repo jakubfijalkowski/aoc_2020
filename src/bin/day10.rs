@@ -1,5 +1,5 @@
-use std::{collections::HashMap, fs};
 use std::io::{prelude::*, BufReader};
+use std::{collections::HashMap, fs};
 
 fn read_input() -> Vec<i64> {
     BufReader::new(fs::File::open("./inputs/day10.txt").unwrap())
@@ -10,8 +10,8 @@ fn read_input() -> Vec<i64> {
 
 fn part1() {
     let mut input = read_input();
-    input.sort();
-    let mut next: Vec<_> = input.iter().map(|x| *x).collect();
+    input.sort_unstable();
+    let mut next: Vec<_> = input.iter().copied().collect();
 
     input.insert(0, 0);
     next.push(next.iter().max().unwrap() + 3);
@@ -55,7 +55,7 @@ fn count_possibilities(from: usize, data: &[i64], saved: &mut HashMap<usize, i64
 
 fn part2() {
     let mut input = read_input();
-    input.sort();
+    input.sort_unstable();
     input.insert(0, 0);
     let mut saved = HashMap::new();
     let poss = 1 + count_possibilities(0, &input[..], &mut saved);
