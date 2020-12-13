@@ -9,4 +9,6 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.34"
 lazy_static = "1.4.0"
+reqwest = { version = "0.10.9", features = ["blocking", "json"] }
+serde = { version = "1.0.118", features = ["derive"] }
 thiserror = "1.0.22"
