@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.34"
 lazy_static = "1.4.0"
+peg = "0.6.3"
 regex = "1.4.2"
 reqwest = { version = "0.10.9", features = ["blocking", "json"] }
 serde = { version = "1.0.118", features = ["derive"] }
