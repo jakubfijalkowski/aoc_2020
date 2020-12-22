@@ -591,12 +591,7 @@ impl Picture {
         }
     }
 
-    fn try_match_at(
-        &self,
-        x: usize,
-        y: usize,
-        pts: impl Iterator<Item = (usize, usize)>,
-    ) -> bool {
+    fn try_match_at(&self, x: usize, y: usize, pts: impl Iterator<Item = (usize, usize)>) -> bool {
         for (ox, oy) in pts {
             let x = x + ox;
             let y = y + oy;

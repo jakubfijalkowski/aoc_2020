@@ -75,7 +75,12 @@ fn call_wolfram(schedule: &Vec<(u64, u64)>) -> String {
 }
 
 fn extract_result(s: &str) -> u64 {
-    s.splitn(3, &['+', '='][..]).nth(1).unwrap().trim().parse().unwrap()
+    s.splitn(3, &['+', '='][..])
+        .nth(1)
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap()
 }
 
 fn part1() {
@@ -96,7 +101,7 @@ fn part1() {
 
 /// This is a tough one to brute-force. :)
 /// However, with some number theory and integer programming help it can be solved rather easily :)
-/// 
+///
 /// You can present the problem as follows:
 /// Let `i` be the number of bus, starting at 0.
 /// Given `d_i` be the ID of the bus `i`

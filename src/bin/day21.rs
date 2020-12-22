@@ -140,7 +140,6 @@ fn part2() {
         })
         .collect();
 
-
     let mut result = Vec::new();
     if !select(&reduced[..], &mut HashSet::new(), &mut result) {
         panic!("no result");
