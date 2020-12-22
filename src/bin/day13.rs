@@ -36,7 +36,7 @@ fn read_input() -> (u64, Vec<(u64, u64)>) {
     (timestamp, depart_times)
 }
 
-fn format_query(schedule: &Vec<(u64, u64)>) -> String {
+fn format_query(schedule: &[(u64, u64)]) -> String {
     let base = schedule[0].1;
 
     let mut query = String::new();
@@ -54,7 +54,7 @@ fn format_query(schedule: &Vec<(u64, u64)>) -> String {
     query
 }
 
-fn call_wolfram(schedule: &Vec<(u64, u64)>) -> String {
+fn call_wolfram(schedule: &[(u64, u64)]) -> String {
     let appid = std::env::var("WOLFRAM_APPID").unwrap();
     let client = reqwest::blocking::Client::new();
     let response: WolframResponse = client

@@ -333,7 +333,7 @@ impl Board {
 
     fn fits<F1, F2>(
         &self,
-        result: &Vec<TileConfiguration>,
+        result: &[TileConfiguration],
         b: &TileConfiguration,
         wx: isize,
         wy: isize,
@@ -520,8 +520,7 @@ impl Picture {
         let mut tile_data: Vec<_> = board
             .tiles
             .iter()
-            .filter(|t| t.id == tile.cfg.tile_id)
-            .next()
+            .find(|t| t.id == tile.cfg.tile_id)
             .unwrap()
             .data
             .iter()
@@ -617,7 +616,7 @@ impl Debug for Picture {
                     }
                 )?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
         Ok(())
     }
